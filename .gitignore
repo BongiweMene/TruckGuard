@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+# Raw TruckGuard datasets
+data/driverBehaviorDataset/
+
+# Generated dataset
+data/truckguard_dataset.csv
