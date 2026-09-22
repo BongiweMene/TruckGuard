@@ -1,6 +1,10 @@
+# TruckGuard™
+# AI-Powered Fleet Safety & Hazardous Cargo Monitoring System
+# Developed by Bongiwe Mene
+# © 2026 Bongiwe Mene. All rights reserved.
+
 import streamlit as st
 import pandas as pd
-import numpy as np
 import time
 from pathlib import Path
 from datetime import datetime
@@ -11,6 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 import joblib
 
 from gps_service import get_test_gps_data
+from osiris_service import get_weather_data, normalize_weather_events
 
 
 # ============================================================
@@ -18,7 +23,7 @@ from gps_service import get_test_gps_data
 # ============================================================
 
 st.set_page_config(
-    page_title="TruckGuard AI",
+    page_title="TruckGuard™ | Bongiwe Mene",
     page_icon="🚛",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -357,7 +362,7 @@ def dashboard():
 
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -1672,16 +1677,139 @@ else:
 
         alerts_page()
 
+# ============================================================
+# OSIRIS ENVIRONMENTAL INTELLIGENCE
+# ============================================================
+
+st.subheader("🌦️ OSIRIS Environmental Intelligence")
+
+with st.spinner("Loading live environmental intelligence..."):
+    weather_payload = get_weather_data()
+
+weather_events = normalize_weather_events(weather_payload)
+
+if isinstance(weather_payload, dict) and weather_payload.get("error"):
+    st.warning(
+        "⚠️ OSIRIS weather intelligence is temporarily unavailable. "
+        "The rest of TruckGuard will continue working normally."
+    )
+
+elif weather_events:
+
+    # Identify potentially severe events
+    high_keywords = {
+        "high",
+        "severe",
+        "extreme",
+        "critical",
+        "red"
+    }
+
+    severe_events = [
+        event
+        for event in weather_events
+        if (
+            str(event.get("Severity", "")).strip().lower()
+            in high_keywords
+            or any(
+                word in str(event.get("Event", "")).lower()
+                for word in (
+                    "storm",
+                    "hurricane",
+                    "tornado",
+                    "cyclone",
+                    "flood"
+                )
+            )
+        )
+    ]
+
+    # Summary metrics
+    w1, w2, w3 = st.columns(3)
+
+    with w1:
+        st.metric(
+            "🌦️ Weather Events",
+            len(weather_events)
+        )
+
+    with w2:
+        st.metric(
+            "⚠️ Severe Events",
+            len(severe_events)
+        )
+
+    with w3:
+        environmental_status = (
+            "HIGH ATTENTION"
+            if severe_events
+            else "MONITORING"
+        )
+
+        st.metric(
+            "🛰️ Environmental Status",
+            environmental_status
+        )
+
+    # Weather event table
+    weather_df = pd.DataFrame(weather_events)
+
+    display_columns = [
+        "Event",
+        "Category",
+        "Severity",
+        "Location",
+        "Date"
+    ]
+
+    display_columns = [
+        column
+        for column in display_columns
+        if column in weather_df.columns
+    ]
+
+    st.dataframe(
+        weather_df[display_columns].head(10),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # Safety notification
+    if severe_events:
+        st.warning(
+            f"⚠️ {len(severe_events)} environmental event(s) "
+            "may require additional route monitoring."
+        )
+    else:
+        st.success(
+            "🟢 No severe environmental events were flagged "
+            "by the current OSIRIS feed."
+        )
+
+else:
+    st.info(
+        "🟢 OSIRIS is connected, but there are currently "
+        "no environmental events to display."
+    )
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.markdown(
-    """
-    <div class="footer">
-        TruckGuard AI © 2026 | Intelligent Truck Safety System
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+
+# ============================================================
+# TRUCKGUARD OWNERSHIP FOOTER
+# ============================================================
+
+st.markdown("""
+<div style="
+    text-align: center;
+    color: #5f7182;
+    font-size: 12px;
+    padding: 25px 0 10px 0;
+    margin-top: 30px;
+    border-top: 1px solid #19354b;
+">
+    TruckGuard™ · Developed by Bongiwe Mene · © 2026
+</div>
+""", unsafe_allow_html=True)
